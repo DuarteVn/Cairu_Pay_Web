@@ -144,6 +144,15 @@ export async function createDivida(divida: DividaCreateData): Promise<any> {
   return handleResponse<any>(response);
 }
 
+export async function updateDivida(codigo: number, divida: DividaCreateData): Promise<any> {
+  const response = await fetch(`${API_BASE}/dividas/${codigo}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(divida),
+  });
+  return handleResponse<any>(response);
+}
+
 export async function deleteDivida(codigo: number): Promise<void> {
   const response = await fetch(`${API_BASE}/dividas/${codigo}`, {
     method: 'DELETE',

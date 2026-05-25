@@ -6,7 +6,7 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Button } from '../ui/button';
 import { FileText, Search, Download, Eye, Loader2 } from 'lucide-react';
-import { getDividas, DividaData } from '../../services/api';
+import { getDividas, getDividasPorDocumento, DividaData } from '../../services/api';
 import { toast } from 'sonner';
 
 export function DebtsByDocumentReport() {
@@ -30,12 +30,23 @@ export function DebtsByDocumentReport() {
     }
   };
 
-  const dividasFiltradas = dividas.filter(divida =>
-    divida.devedorNome.toLowerCase().includes(termoBusca.toLowerCase()) ||
-    divida.credorNome.toLowerCase().includes(termoBusca.toLowerCase()) ||
-    divida.devedorDocumento.toLowerCase().includes(termoBusca.toLowerCase()) ||
-    divida.credorDocumento.toLowerCase().includes(termoBusca.toLowerCase())
-  );
+  const buscarPorDocumento = async () => {
+    if (!termoBusca.trim()) {
+      carregarDados();
+      return;
+    }
+    setLoading(true);
+    try {
+      const data = await getDividasPorDocumento(termoBusca.trim());
+      setDividas(data);
+    } catch (error) {
+      toast.error('Erro ao buscar por documento');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const dividasFiltradas = dividas;
 
   const totalValorOriginal = dividasFiltradas.reduce((soma, divida) => soma + Number(divida.valorDivida), 0);
   const totalValorPago = dividasFiltradas.reduce((soma, divida) => soma + Number(divida.valorPago), 0);
@@ -134,20 +145,28 @@ export function DebtsByDocumentReport() {
           <CardTitle>Filtrar Documentos</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4">
+          <div className="flex gap-4 items-end">
             <div className="flex-1">
-              <Label htmlFor="busca">Buscar por documento ou pessoa</Label>
+              <Label htmlFor="busca">Buscar por documento (CPF/CNPJ)</Label>
               <div className="relative mt-1">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="busca"
-                  placeholder="Buscar..."
+                  placeholder="Digite o documento e clique em Buscar..."
                   value={termoBusca}
                   onChange={(e) => setTermoBusca(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && buscarPorDocumento()}
                   className="pl-9"
                 />
               </div>
             </div>
+            <Button onClick={buscarPorDocumento} className="flex items-center gap-2">
+              <Search className="h-4 w-4" />
+              Buscar
+            </Button>
+            <Button variant="outline" onClick={() => { setTermoBusca(''); carregarDados(); }}>
+              Limpar
+            </Button>
           </div>
         </CardContent>
       </Card>

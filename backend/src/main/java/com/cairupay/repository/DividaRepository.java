@@ -10,4 +10,6 @@ public interface DividaRepository extends JpaRepository<Divida, Integer> {
 
     @Query("SELECT d FROM Divida d WHERE d.credor.documento = :documento OR d.devedor.documento = :documento")
     List<Divida> findByDocumento(@Param("documento") String documento);
+
+    boolean existsByCredorIdPessoaOrDevedorIdPessoa(Integer credorId, Integer devedorId);
 }

@@ -10,7 +10,7 @@ import { Badge } from './ui/badge';
 import { Alert, AlertDescription } from './ui/alert';
 import { Save, Trash2, Edit, AlertCircle, FileText, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { getDividas, createDivida, deleteDivida, getPessoas, DividaData, PessoaData } from '../services/api';
+import { getDividas, createDivida, updateDivida, deleteDivida, getPessoas, DividaData, PessoaData } from '../services/api';
 
 interface DebtManagementProps {
   tab: TabItem;
@@ -20,6 +20,7 @@ export function DebtManagement({ tab }: DebtManagementProps) {
   const [dividas, setDividas] = useState<DividaData[]>([]);
   const [pessoas, setPessoas] = useState<PessoaData[]>([]);
   const [loading, setLoading] = useState(false);
+  const [editingCodigo, setEditingCodigo] = useState<number | null>(null);
 
   const [formData, setFormData] = useState({
     credorId: '',
@@ -29,6 +30,8 @@ export function DebtManagement({ tab }: DebtManagementProps) {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const isListMode = tab.data?.mode === 'list';
+  const showForm = !isListMode || editingCodigo !== null;
+  const showList = isListMode && editingCodigo === null;
 
   useEffect(() => {
     carregarPessoas();
@@ -88,18 +91,42 @@ export function DebtManagement({ tab }: DebtManagementProps) {
     
     if (validateForm()) {
       try {
-        await createDivida({
+        const payload = {
           credorId: Number(formData.credorId),
           devedorId: Number(formData.devedorId),
           valorDivida: Number(formData.valorDivida)
-        });
-        toast.success('Dívida salva com sucesso!');
+        };
+        if (editingCodigo) {
+          await updateDivida(editingCodigo, payload);
+          toast.success('Dívida atualizada com sucesso!');
+        } else {
+          await createDivida(payload);
+          toast.success('Dívida salva com sucesso!');
+        }
         setFormData({ credorId: '', devedorId: '', valorDivida: '' });
+        setEditingCodigo(null);
         setErrors({});
+        if (isListMode) carregarDividas();
       } catch (error: any) {
         toast.error(error.message || 'Erro ao salvar dívida');
       }
     }
+  };
+
+  const handleEdit = (divida: DividaData) => {
+    setEditingCodigo(divida.codigo);
+    setFormData({
+      credorId: String(divida.credorId),
+      devedorId: String(divida.devedorId),
+      valorDivida: String(divida.valorDivida)
+    });
+    setErrors({});
+  };
+
+  const handleCancelEdit = () => {
+    setEditingCodigo(null);
+    setFormData({ credorId: '', devedorId: '', valorDivida: '' });
+    setErrors({});
   };
 
   const handleDelete = async (codigo: number) => {
@@ -128,15 +155,15 @@ export function DebtManagement({ tab }: DebtManagementProps) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2>{isListMode ? 'Lista de Dívidas' : 'Cadastro de Dívida'}</h2>
+        <h2>{editingCodigo ? 'Editar Dívida' : isListMode ? 'Lista de Dívidas' : 'Cadastro de Dívida'}</h2>
       </div>
 
-      {!isListMode && (
+      {showForm && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Save className="h-5 w-5" />
-              Informações da Dívida
+              {editingCodigo ? 'Editando Dívida' : 'Informações da Dívida'}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -215,25 +242,35 @@ export function DebtManagement({ tab }: DebtManagementProps) {
               <div className="flex gap-2 pt-4">
                 <Button type="submit" className="flex items-center gap-2">
                   <Save className="h-4 w-4" />
-                  Salvar Dívida
+                  {editingCodigo ? 'Atualizar Dívida' : 'Salvar Dívida'}
                 </Button>
-                <Button 
-                  type="button" 
-                  variant="outline"
-                  onClick={() => {
-                    setFormData({ credorId: '', devedorId: '', valorDivida: '' });
-                    setErrors({});
-                  }}
-                >
-                  Limpar Formulário
-                </Button>
+                {editingCodigo ? (
+                  <Button 
+                    type="button" 
+                    variant="outline"
+                    onClick={handleCancelEdit}
+                  >
+                    Cancelar Edição
+                  </Button>
+                ) : (
+                  <Button 
+                    type="button" 
+                    variant="outline"
+                    onClick={() => {
+                      setFormData({ credorId: '', devedorId: '', valorDivida: '' });
+                      setErrors({});
+                    }}
+                  >
+                    Limpar Formulário
+                  </Button>
+                )}
               </div>
             </form>
           </CardContent>
         </Card>
       )}
 
-      {isListMode && (
+      {showList && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -278,7 +315,7 @@ export function DebtManagement({ tab }: DebtManagementProps) {
                         <TableCell>{getStatusBadge(divida.status)}</TableCell>
                         <TableCell>
                           <div className="flex gap-2">
-                            <Button variant="outline" size="sm">
+                            <Button variant="outline" size="sm" onClick={() => handleEdit(divida)}>
                               <Edit className="h-4 w-4" />
                             </Button>
                             <Button 
