@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from './ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Save, Trash2, Edit, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { getPessoas, createPessoa, deletePessoa, PessoaData } from '../services/api';
+import { getPessoas, createPessoa, updatePessoa, deletePessoa, PessoaData } from '../services/api';
 
 const UF_LIST = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
 
@@ -20,6 +20,7 @@ interface PersonManagementProps {
 export function PersonManagement({ tab }: PersonManagementProps) {
   const [pessoas, setPessoas] = useState<PessoaData[]>([]);
   const [loading, setLoading] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   const [formData, setFormData] = useState({
     nomeCliente: '',
@@ -32,6 +33,8 @@ export function PersonManagement({ tab }: PersonManagementProps) {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const isListMode = tab.data?.mode === 'list';
+  const showForm = !isListMode || editingId !== null;
+  const showList = isListMode && editingId === null;
 
   useEffect(() => {
     if (isListMode) {
@@ -81,14 +84,40 @@ export function PersonManagement({ tab }: PersonManagementProps) {
     
     if (validateForm()) {
       try {
-        await createPessoa(formData);
-        toast.success('Pessoa salva com sucesso!');
+        if (editingId) {
+          await updatePessoa(editingId, formData);
+          toast.success('Pessoa atualizada com sucesso!');
+        } else {
+          await createPessoa(formData);
+          toast.success('Pessoa salva com sucesso!');
+        }
         setFormData({ nomeCliente: '', email: '', telefone: '', documento: '', endereco: '', uf: '' });
+        setEditingId(null);
         setErrors({});
+        if (isListMode) carregarPessoas();
       } catch (error: any) {
         toast.error(error.message || 'Erro ao salvar pessoa');
       }
     }
+  };
+
+  const handleEdit = (pessoa: PessoaData) => {
+    setEditingId(pessoa.idPessoa!);
+    setFormData({
+      nomeCliente: pessoa.nomeCliente,
+      email: pessoa.email,
+      telefone: pessoa.telefone,
+      documento: pessoa.documento,
+      endereco: pessoa.endereco,
+      uf: pessoa.uf
+    });
+    setErrors({});
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setFormData({ nomeCliente: '', email: '', telefone: '', documento: '', endereco: '', uf: '' });
+    setErrors({});
   };
 
   const handleDelete = async (id: number, nome: string) => {
@@ -106,15 +135,15 @@ export function PersonManagement({ tab }: PersonManagementProps) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2>{isListMode ? 'Lista de Pessoas' : 'Cadastro de Pessoa'}</h2>
+        <h2>{editingId ? 'Editar Pessoa' : isListMode ? 'Lista de Pessoas' : 'Cadastro de Pessoa'}</h2>
       </div>
 
-      {!isListMode && (
+      {showForm && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Save className="h-5 w-5" />
-              Informações da Pessoa
+              {editingId ? 'Editando Pessoa' : 'Informações da Pessoa'}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -215,25 +244,35 @@ export function PersonManagement({ tab }: PersonManagementProps) {
               <div className="flex gap-2 pt-4">
                 <Button type="submit" className="flex items-center gap-2">
                   <Save className="h-4 w-4" />
-                  Salvar Pessoa
+                  {editingId ? 'Atualizar Pessoa' : 'Salvar Pessoa'}
                 </Button>
-                <Button 
-                  type="button" 
-                  variant="outline"
-                  onClick={() => {
-                    setFormData({ nomeCliente: '', email: '', telefone: '', documento: '', endereco: '', uf: '' });
-                    setErrors({});
-                  }}
-                >
-                  Limpar Formulário
-                </Button>
+                {editingId ? (
+                  <Button 
+                    type="button" 
+                    variant="outline"
+                    onClick={handleCancelEdit}
+                  >
+                    Cancelar Edição
+                  </Button>
+                ) : (
+                  <Button 
+                    type="button" 
+                    variant="outline"
+                    onClick={() => {
+                      setFormData({ nomeCliente: '', email: '', telefone: '', documento: '', endereco: '', uf: '' });
+                      setErrors({});
+                    }}
+                  >
+                    Limpar Formulário
+                  </Button>
+                )}
               </div>
             </form>
           </CardContent>
         </Card>
       )}
 
-      {isListMode && (
+      {showList && (
         <Card>
           <CardHeader>
             <CardTitle>Pessoas Cadastradas</CardTitle>
@@ -273,7 +312,7 @@ export function PersonManagement({ tab }: PersonManagementProps) {
                         <TableCell>{pessoa.uf}</TableCell>
                         <TableCell>
                           <div className="flex gap-2">
-                            <Button variant="outline" size="sm">
+                            <Button variant="outline" size="sm" onClick={() => handleEdit(pessoa)}>
                               <Edit className="h-4 w-4" />
                             </Button>
                             <Button 
